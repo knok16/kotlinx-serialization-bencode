@@ -1,5 +1,6 @@
 package com.github.knok16.serialization
 
+import com.github.knok16.bencode.ParsingException
 import com.github.knok16.bencode.Reader
 import kotlinx.serialization.BinaryFormat
 import kotlinx.serialization.DeserializationStrategy
@@ -16,8 +17,14 @@ sealed class Bencode(
     companion object Default : Bencode(false, EmptySerializersModule())
 
     override fun <T> decodeFromByteArray(deserializer: DeserializationStrategy<T>, bytes: ByteArray): T {
-        val decoder = BencodeDecoder(this, Reader(bytes))
-        return decoder.decodeSerializableValue(deserializer)
+        val reader = Reader(bytes)
+
+        val decoder = BencodeDecoder(this, reader)
+
+        return decoder.decodeSerializableValue(deserializer).also {
+            if (reader.peek() != null)
+                throw ParsingException("Unexpected character '${reader.peek()}'", reader.index)
+        }
     }
 
     override fun <T> encodeToByteArray(serializer: SerializationStrategy<T>, value: T): ByteArray {

@@ -14,6 +14,8 @@ import kotlinx.serialization.serializer
 import java.util.*
 
 private val byteArraySerializer = serializer<ByteArray>()
+private val bencodedStringSerializer = serializer<BencodedString>()
+private val bencodedDataSerializer = serializer<BencodedData>()
 
 // TODO add support for sequential decoding?
 @OptIn(ExperimentalSerializationApi::class)
@@ -80,6 +82,7 @@ class BencodeDecoder(
             StructureKind.OBJECT -> {
                 val index = descriptor.getElementIndex(decodeString())
                 if (index == CompositeDecoder.UNKNOWN_NAME && bencode.ignoreUnknownKeys) {
+                    // TODO what if empty?
                     reader.readData() // read and throw-out value for unknown key
                     decodeElementIndex(descriptor)
                 } else index
@@ -92,8 +95,11 @@ class BencodeDecoder(
     // TODO which one should be overridden? this one or with 2 parameters?
     @Suppress("UNCHECKED_CAST")
     override fun <T> decodeSerializableValue(deserializer: DeserializationStrategy<T>): T =
-        if (deserializer.descriptor == byteArraySerializer.descriptor)
-            decodeByteArray() as T
-        else
-            super.decodeSerializableValue(deserializer)
+        when (deserializer.descriptor) {
+            byteArraySerializer.descriptor -> decodeByteArray() as T
+            // TODO next line will be obsolete if find a way to make BencodedString as value class
+            bencodedStringSerializer.descriptor -> BencodedString(reader.readByteString()) as T
+            bencodedDataSerializer.descriptor -> reader.readData() as T
+            else -> super.decodeSerializableValue(deserializer)
+        }
 }

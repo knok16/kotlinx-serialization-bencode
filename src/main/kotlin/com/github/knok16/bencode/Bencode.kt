@@ -1,5 +1,6 @@
 package com.github.knok16.bencode
 
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import java.nio.charset.Charset
 
@@ -8,6 +9,7 @@ class ParsingException(reason: String, val at: Int? = null) : SerializationExcep
 sealed interface BencodedData
 
 // TODO add documentation
+@Serializable
 class BencodedString(private val bytes: ByteArray) : BencodedData {
     val size: Int
         get() = bytes.size
@@ -31,20 +33,14 @@ class BencodedString(private val bytes: ByteArray) : BencodedData {
 }
 
 @JvmInline
+@Serializable
 value class BencodedNumber(val value: Long) : BencodedData
 
 @JvmInline
+@Serializable
 value class BencodedList(private val content: List<BencodedData>) : BencodedData, List<BencodedData> by content
 
 @JvmInline
+@Serializable
 value class BencodedDictionary(private val content: Map<BencodedString, BencodedData>) : BencodedData,
     Map<BencodedString, BencodedData> by content
-
-fun parse(byteArray: ByteArray): BencodedData? {
-    val reader = Reader(byteArray)
-
-    return reader.readData().also {
-        if (reader.peek() != null)
-            throw ParsingException("Unexpected character '${reader.peek()}'", reader.index)
-    }
-}
