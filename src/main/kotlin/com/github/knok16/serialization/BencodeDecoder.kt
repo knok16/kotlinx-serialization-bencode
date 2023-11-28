@@ -9,7 +9,6 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.encoding.AbstractDecoder
 import kotlinx.serialization.encoding.CompositeDecoder
-import kotlinx.serialization.modules.EmptySerializersModule
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.serializer
 import java.util.*
@@ -19,9 +18,12 @@ private val byteArraySerializer = serializer<ByteArray>()
 // TODO add support for sequential decoding?
 @OptIn(ExperimentalSerializationApi::class)
 class BencodeDecoder(
-    private val reader: Reader,
-    override val serializersModule: SerializersModule = EmptySerializersModule()
+    private val bencode: Bencode,
+    private val reader: Reader
 ) : AbstractDecoder() {
+    override val serializersModule: SerializersModule
+        get() = bencode.serializersModule
+
     private val positions = Stack<Int>()
 
     override fun decodeString(): String =
@@ -67,7 +69,7 @@ class BencodeDecoder(
         positions.pop()
     }
 
-    override fun decodeElementIndex(descriptor: SerialDescriptor): Int {
+    override tailrec fun decodeElementIndex(descriptor: SerialDescriptor): Int {
         return if (reader.peek() in setOf(null, END_TOKEN)) {
             CompositeDecoder.DECODE_DONE
         } else when (descriptor.kind) {
@@ -75,7 +77,13 @@ class BencodeDecoder(
             StructureKind.MAP -> positions.pop().also { positions.push(it + 1) }
 
             StructureKind.CLASS,
-            StructureKind.OBJECT -> descriptor.getElementIndex(decodeString())
+            StructureKind.OBJECT -> {
+                val index = descriptor.getElementIndex(decodeString())
+                if (index == CompositeDecoder.UNKNOWN_NAME && bencode.ignoreUnknownKeys) {
+                    reader.readData() // read and throw-out value for unknown key
+                    decodeElementIndex(descriptor)
+                } else index
+            }
 
             else -> TODO("Add proper error message")
         }

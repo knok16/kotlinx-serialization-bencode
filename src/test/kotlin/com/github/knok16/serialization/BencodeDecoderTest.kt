@@ -153,5 +153,22 @@ class BencodeDecoderTest {
         )
     }
 
+    @Serializable
+    data class TorrentMetadataSmall(
+        val announce: String,
+        val info: Info
+    )
+
+    @Test
+    fun ignoreUnknownKeys() {
+        val bytes = readBytesFromResource("/ubuntu-23.10.1-desktop-amd64.iso.torrent")
+
+        val metadata = Bencode {
+            ignoreUnknownKeys = true
+        }.decodeFromByteArray<TorrentMetadataSmall>(bytes)
+
+        assertEquals("https://torrent.ubuntu.com/announce", metadata.announce)
+    }
+
     private inline fun <reified T> decodeFromString(str: String): T = Bencode.decodeFromByteArray(str.toByteArray())
 }
