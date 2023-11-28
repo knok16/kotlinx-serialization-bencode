@@ -1,105 +1,112 @@
 package com.github.knok16.bencode
 
-private val DIGITS_RANGE = '0'..'9'
-private const val END_TOKEN = 'e'
-private const val NUMBER_START_TOKEN = 'i'
-private const val LIST_START_TOKEN = 'l'
-private const val DICTIONARY_START_TOKEN = 'd'
+import java.nio.charset.Charset
 
-internal fun parseRoot(reader: Reader): BencodedData? {
-    val result = parse(reader)
-
-    if (reader.peek() != null)
-        throw ParsingException("Unexpected character '${reader.peek()}'", reader.index)
-
-    return result
+object DIGITS_RANGE {
+    operator fun contains(token: Char?) = token in '0'..'9'
 }
+const val END_TOKEN = 'e'
+const val NUMBER_START_TOKEN = 'i'
+const val LIST_START_TOKEN = 'l'
+const val DICTIONARY_START_TOKEN = 'd'
 
-internal fun parse(reader: Reader): BencodedData? = when (reader.peek()) {
-    in DIGITS_RANGE -> parseString(reader)
-    NUMBER_START_TOKEN -> parseNumber(reader)
-    LIST_START_TOKEN -> parseList(reader)
-    DICTIONARY_START_TOKEN -> parseDictionary(reader)
+fun Reader.readData(): BencodedData? = when (peek()) {
+    in DIGITS_RANGE -> BencodedString(readByteString())
+    NUMBER_START_TOKEN -> BencodedNumber(readNumber())
+    LIST_START_TOKEN -> BencodedList(readList())
+    DICTIONARY_START_TOKEN -> BencodedDictionary(readDictionary())
     else -> null
 }
 
-internal fun parseInteger(reader: Reader): Long {
-    when (val token = reader.peek()) {
+internal fun Reader.readInteger(): Long {
+    when (val token = peek()) {
         null -> throw ParsingException("Expected decimal digit, but got end of input")
-        !in DIGITS_RANGE -> throw ParsingException("Expected decimal digit, but got '$token'")
+        !in DIGITS_RANGE -> throw ParsingException("Expected decimal digit, but got '$token'", index)
     }
 
     var result = 0L
-    while (reader.peek() in DIGITS_RANGE) {
-        result = result * 10 + (reader.next()!! - '0')
+    while (peek() in DIGITS_RANGE) {
+        result = result * 10 + (next()!! - '0')
     }
 
     return result
 }
 
-internal fun parseString(reader: Reader): BencodedString {
-    val len = parseInteger(reader)
+fun Reader.readByteString(): ByteArray {
+    val len = readInteger()
     if (len > Integer.MAX_VALUE)
         throw ParsingException("Length of string too big: $len")
 
-    reader.assertNextToken(':')
+    consumeToken(':')
 
-    return BencodedString(reader.takeNext(len.toInt()))
+    return takeNextBytes(len.toInt())
 }
 
-internal fun parseNumber(reader: Reader): BencodedNumber {
-    reader.assertNextToken(NUMBER_START_TOKEN)
+// TODO deduplicate common with readByteString
+fun Reader.readString(charset: Charset): String {
 
-    val minusSign = reader.peek() == '-'
+    val len = readInteger()
+    if (len > Integer.MAX_VALUE)
+        throw ParsingException("Length of string too big: $len")
+
+    consumeToken(':')
+
+    return takeString(len.toInt(), charset)
+}
+
+fun Reader.readNumber(): Long {
+    consumeToken(NUMBER_START_TOKEN)
+
+    val minusSign = peek() == '-'
     if (minusSign)
-        reader.next() // pop minus sign
+        next() // pop minus sign
 
-    val result = parseInteger(reader)
+    val result = readInteger()
 
-    reader.assertNextToken(END_TOKEN)
+    consumeToken(END_TOKEN)
 
-    return BencodedNumber(if (minusSign) -result else result)
+    return if (minusSign) -result else result
 }
 
-internal fun parseList(reader: Reader): BencodedList {
-    reader.assertNextToken(LIST_START_TOKEN)
+fun Reader.readList(): List<BencodedData> {
+    consumeToken(LIST_START_TOKEN)
 
     val result = ArrayList<BencodedData>()
 
     while (true) {
-        result.add(parse(reader) ?: break)
+        result.add(readData() ?: break)
     }
 
-    reader.assertNextToken(END_TOKEN)
+    consumeToken(END_TOKEN)
 
-    return BencodedList(result)
+    return result
 }
 
-internal fun parseDictionary(reader: Reader): BencodedDictionary {
-    reader.assertNextToken(DICTIONARY_START_TOKEN)
+fun Reader.readDictionary(): Map<BencodedString, BencodedData> {
+    consumeToken(DICTIONARY_START_TOKEN)
 
     val result = HashMap<BencodedString, BencodedData>()
 
     while (true) {
-        val keyStartingIndex = reader.index
-        val key = parse(reader) ?: break
+        val keyStartingIndex = index
+        val key = readData() ?: break
         if (key !is BencodedString)
             throw ParsingException("Only strings allowed as keys in dictionary", keyStartingIndex)
 
-        val valueStartingIndex = reader.index
-        val value = parse(reader)
+        val valueStartingIndex = index
+        val value = readData()
             ?: throw ParsingException("Cannot parse dictionary value for key '$key'", valueStartingIndex)
 
         result[key] = value
     }
 
-    reader.assertNextToken(END_TOKEN)
+    consumeToken(END_TOKEN)
 
-    return BencodedDictionary(result)
+    return result
 }
 
-private fun Reader.assertNextToken(expectedToken: Char) = when (val token = next()) {
+fun Reader.consumeToken(expectedToken: Char) = when (val token = peek()) {
     null -> throw ParsingException("Expected '$expectedToken', but got end of input")
-    expectedToken -> {}
-    else -> throw ParsingException("Expected '$expectedToken', but got '$token'", prevIndex)
+    expectedToken -> next()
+    else -> throw ParsingException("Expected '$expectedToken', but got '$token'", index)
 }

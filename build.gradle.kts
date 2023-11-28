@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "1.9.20"
+    kotlin("plugin.serialization") version "1.9.20"
 }
 
 group = "com.github.knok16"
@@ -10,6 +11,7 @@ repositories {
 }
 
 dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.1")
     testImplementation(kotlin("test"))
 }
 
