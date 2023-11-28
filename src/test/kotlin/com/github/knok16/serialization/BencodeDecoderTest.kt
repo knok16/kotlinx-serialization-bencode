@@ -72,4 +72,62 @@ class BencodeDecoderTest {
         assertEquals(262144, metadata.info.pieceLength)
         assertEquals("ubuntu-23.10.1-desktop-amd64.iso", metadata.info.name)
     }
+
+    @Test
+    fun decodeString() {
+        assertEquals(
+            "AbcdAbcdAbcdA",
+            decodeFromString("13:AbcdAbcdAbcdA")
+        )
+    }
+
+    @Test
+    fun decodeByteArray() {
+        assertContentEquals(
+            "AbcdAbcdAbcdA".toByteArray(),
+            decodeFromString("13:AbcdAbcdAbcdA")
+        )
+    }
+
+    @Test
+    fun decodeByte() {
+        assertEquals(
+            123.toByte(),
+            decodeFromString("i123e")
+        )
+    }
+
+    @Test
+    fun decodeShort() {
+        assertEquals(
+            123.toShort(),
+            decodeFromString("i123e")
+        )
+    }
+
+    @Test
+    fun decodeChar() {
+        assertEquals(
+            '@',
+            decodeFromString("i64e")
+        )
+    }
+
+    @Test
+    fun decodeInt() {
+        assertEquals(
+            123,
+            decodeFromString("i123e")
+        )
+    }
+
+    @Test
+    fun decodeLong() {
+        assertEquals(
+            123L,
+            decodeFromString("i123e")
+        )
+    }
+
+    private inline fun <reified T> decodeFromString(str: String): T = Bencode.decodeFromByteArray(str.toByteArray())
 }

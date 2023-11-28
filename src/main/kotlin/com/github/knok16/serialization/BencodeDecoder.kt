@@ -27,8 +27,20 @@ class BencodeDecoder(
     override fun decodeString(): String =
         reader.readString(charset = Charsets.UTF_8) // TODO move charset into parameters
 
+    // TODO add validation if value too big for byte/short/int
+    // TODO what about supporting BigInteger?
+    // TODO should it even be supported or decoder should support Long only, and any conversions should be done on top of it by serializer
+    override fun decodeByte(): Byte =
+        decodeLong().toByte()
+
+    override fun decodeShort(): Short =
+        decodeLong().toShort()
+
     override fun decodeInt(): Int =
-        reader.readNumber().toInt() // TODO add validation if too big
+        decodeLong().toInt()
+
+    override fun decodeChar(): Char =
+        decodeInt().toChar()
 
     override fun decodeLong(): Long =
         reader.readNumber()
