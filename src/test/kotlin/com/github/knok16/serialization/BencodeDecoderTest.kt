@@ -129,5 +129,29 @@ class BencodeDecoderTest {
         )
     }
 
+    @Test
+    fun decodeEmptyList() {
+        assertEquals(
+            emptyList<String>(),
+            decodeFromString("le")
+        )
+    }
+
+    @Test
+    fun decodeList() {
+        assertEquals(
+            listOf("abc", "foo", "bar"),
+            decodeFromString("l3:abc3:foo3:bare")
+        )
+    }
+
+    @Test
+    fun decodeMap() {
+        assertEquals(
+            mapOf("abc" to "def", "foo" to "bar"),
+            decodeFromString("d3:abc3:def3:foo3:bare")
+        )
+    }
+
     private inline fun <reified T> decodeFromString(str: String): T = Bencode.decodeFromByteArray(str.toByteArray())
 }
