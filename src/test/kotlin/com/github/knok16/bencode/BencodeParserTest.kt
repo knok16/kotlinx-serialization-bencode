@@ -10,12 +10,12 @@ import kotlin.test.assertNull
 class BencodeParserTest {
     private val charset = Charsets.US_ASCII
 
-    private fun bencodedString(str: String) = BencodedString(str.toByteArray(charset))
+    private fun bencodedString(str: String) = BencodeString(str.toByteArray(charset))
 
-    private fun bencodedListOf(vararg element: BencodedData) = BencodedList(element.toList())
+    private fun bencodedListOf(vararg element: BencodeElement) = BencodeList(element.toList())
 
-    private fun bencodedDictionaryOf(vararg element: Pair<String, BencodedData>) =
-        BencodedDictionary(element.associate { (key, value) -> bencodedString(key) to value })
+    private fun bencodedDictionaryOf(vararg element: Pair<String, BencodeElement>) =
+        BencodeDictionary(element.associate { (key, value) -> bencodedString(key) to value })
 
     private inline fun <reified T> parse(string: String): T =
         Bencode.decodeFromByteArray(string.toByteArray(charset = charset))
@@ -28,7 +28,7 @@ class BencodeParserTest {
 
     @Test
     fun decodeEmptyString() {
-        assertNull(parse<BencodedData>(""))
+        assertNull(parse<BencodeElement>(""))
         // TODO decide on this
         // assertNull(parse<BencodedString>(""))
         // assertNull(parse<BencodedNumber>(""))
@@ -38,9 +38,9 @@ class BencodeParserTest {
 
     @Test
     fun decodeBencodedString() {
-        assertEquals(bencodedString("abc"), parse<BencodedString>("3:abc"))
-        assertEquals(bencodedString("AbcAbcAbcAbc"), parse<BencodedString>("12:AbcAbcAbcAbc"))
-        assertEquals(bencodedString(""), parse<BencodedString>("0:"))
+        assertEquals(bencodedString("abc"), parse<BencodeString>("3:abc"))
+        assertEquals(bencodedString("AbcAbcAbcAbc"), parse<BencodeString>("12:AbcAbcAbcAbc"))
+        assertEquals(bencodedString(""), parse<BencodeString>("0:"))
     }
 
     @Test
@@ -53,10 +53,10 @@ class BencodeParserTest {
 
     @Test
     fun decodeBencodedNumberSimple() {
-        assertEquals(BencodedNumber(0), parse<BencodedNumber>("i0e"))
-        assertEquals(BencodedNumber(1), parse<BencodedNumber>("i1e"))
-        assertEquals(BencodedNumber(123), parse<BencodedNumber>("i123e"))
-        assertEquals(BencodedNumber(72833), parse<BencodedNumber>("i72833e"))
+        assertEquals(BencodeNumber(0), parse<BencodeNumber>("i0e"))
+        assertEquals(BencodeNumber(1), parse<BencodeNumber>("i1e"))
+        assertEquals(BencodeNumber(123), parse<BencodeNumber>("i123e"))
+        assertEquals(BencodeNumber(72833), parse<BencodeNumber>("i72833e"))
     }
 
     @Test
@@ -66,15 +66,15 @@ class BencodeParserTest {
 
     @Test
     fun decodeBencodedNumberNegativeValues() {
-        assertEquals(BencodedNumber(-1), parse<BencodedNumber>("i-1e"))
-        assertEquals(BencodedNumber(-123), parse<BencodedNumber>("i-123e"))
-        assertEquals(BencodedNumber(-72833), parse<BencodedNumber>("i-72833e"))
+        assertEquals(BencodeNumber(-1), parse<BencodeNumber>("i-1e"))
+        assertEquals(BencodeNumber(-123), parse<BencodeNumber>("i-123e"))
+        assertEquals(BencodeNumber(-72833), parse<BencodeNumber>("i-72833e"))
     }
 
     @Test
     fun decodeBencodedNumberMaximumValues() {
-        assertEquals(BencodedNumber(Long.MIN_VALUE), parse<BencodedNumber>("i${Long.MIN_VALUE}e"))
-        assertEquals(BencodedNumber(Long.MAX_VALUE), parse<BencodedNumber>("i${Long.MAX_VALUE}e"))
+        assertEquals(BencodeNumber(Long.MIN_VALUE), parse<BencodeNumber>("i${Long.MIN_VALUE}e"))
+        assertEquals(BencodeNumber(Long.MAX_VALUE), parse<BencodeNumber>("i${Long.MAX_VALUE}e"))
     }
 
     @Test
@@ -94,12 +94,12 @@ class BencodeParserTest {
 
     @Test
     fun decodeBencodedList() {
-        assertEquals(bencodedListOf(bencodedString("hello"), BencodedNumber(52)), parse<BencodedList>("l5:helloi52ee"))
+        assertEquals(bencodedListOf(bencodedString("hello"), BencodeNumber(52)), parse<BencodeList>("l5:helloi52ee"))
     }
 
     @Test
     fun decodeBencodedEmptyList() {
-        assertEquals(bencodedListOf(), parse<BencodedList>("le"))
+        assertEquals(bencodedListOf(), parse<BencodeList>("le"))
     }
 
     @Test
@@ -112,14 +112,14 @@ class BencodeParserTest {
     @Test
     fun decodeBencodedDictionary() {
         assertEquals(
-            bencodedDictionaryOf("foo" to bencodedString("bar"), "hello" to BencodedNumber(52)),
-            parse<BencodedDictionary>("d3:foo3:bar5:helloi52ee")
+            bencodedDictionaryOf("foo" to bencodedString("bar"), "hello" to BencodeNumber(52)),
+            parse<BencodeDictionary>("d3:foo3:bar5:helloi52ee")
         )
     }
 
     @Test
     fun decodeBencodedEmptyDictionary() {
-        assertEquals(bencodedDictionaryOf(), parse<BencodedDictionary>("de"))
+        assertEquals(bencodedDictionaryOf(), parse<BencodeDictionary>("de"))
     }
 
     @Test
@@ -142,18 +142,18 @@ class BencodeParserTest {
             bencodedDictionaryOf(
                 "foo" to bencodedListOf(
                     bencodedString("hello"),
-                    BencodedNumber(52),
+                    BencodeNumber(52),
                     bencodedDictionaryOf(),
                     bencodedListOf()
                 ),
-                "hello" to BencodedNumber(52)
+                "hello" to BencodeNumber(52)
             ),
-            parse<BencodedDictionary>("d3:fool5:helloi52edelee5:helloi52ee")
+            parse<BencodeDictionary>("d3:fool5:helloi52edelee5:helloi52ee")
         )
     }
 
     fun assertParsingException(expectedReason: String, bencodedString: String) = assertEquals(
         expectedReason,
-        assertFailsWith<ParsingException> { parse<BencodedData>(bencodedString) }.message
+        assertFailsWith<ParsingException> { parse<BencodeElement>(bencodedString) }.message
     )
 }

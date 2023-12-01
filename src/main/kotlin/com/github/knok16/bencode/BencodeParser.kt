@@ -10,11 +10,11 @@ const val NUMBER_START_TOKEN = 'i'
 const val LIST_START_TOKEN = 'l'
 const val DICTIONARY_START_TOKEN = 'd'
 
-fun Reader.readData(): BencodedData? = when (peek()) {
-    in DIGITS_RANGE -> BencodedString(readByteString())
-    NUMBER_START_TOKEN -> BencodedNumber(readNumber())
-    LIST_START_TOKEN -> BencodedList(readList())
-    DICTIONARY_START_TOKEN -> BencodedDictionary(readDictionary())
+fun Reader.readData(): BencodeElement? = when (peek()) {
+    in DIGITS_RANGE -> BencodeString(readByteString())
+    NUMBER_START_TOKEN -> BencodeNumber(readNumber())
+    LIST_START_TOKEN -> BencodeList(readList())
+    DICTIONARY_START_TOKEN -> BencodeDictionary(readDictionary())
     else -> null
 }
 
@@ -68,10 +68,10 @@ fun Reader.readNumber(): Long {
     return if (minusSign) -result else result
 }
 
-fun Reader.readList(): List<BencodedData> {
+fun Reader.readList(): List<BencodeElement> {
     consumeToken(LIST_START_TOKEN)
 
-    val result = ArrayList<BencodedData>()
+    val result = ArrayList<BencodeElement>()
 
     while (true) {
         result.add(readData() ?: break)
@@ -82,15 +82,15 @@ fun Reader.readList(): List<BencodedData> {
     return result
 }
 
-fun Reader.readDictionary(): Map<BencodedString, BencodedData> {
+fun Reader.readDictionary(): Map<BencodeString, BencodeElement> {
     consumeToken(DICTIONARY_START_TOKEN)
 
-    val result = HashMap<BencodedString, BencodedData>()
+    val result = HashMap<BencodeString, BencodeElement>()
 
     while (true) {
         val keyStartingIndex = index
         val key = readData() ?: break
-        if (key !is BencodedString)
+        if (key !is BencodeString)
             throw ParsingException("Only strings allowed as keys in dictionary", keyStartingIndex)
 
         val valueStartingIndex = index

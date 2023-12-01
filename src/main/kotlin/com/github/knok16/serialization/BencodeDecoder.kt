@@ -14,8 +14,8 @@ import kotlinx.serialization.serializer
 import java.util.*
 
 private val byteArraySerializer = serializer<ByteArray>()
-private val bencodedStringSerializer = serializer<BencodedString>()
-private val bencodedDataSerializer = serializer<BencodedData>()
+private val bencodedStringSerializer = serializer<BencodeString>()
+private val bencodeElementSerializer = serializer<BencodeElement>()
 
 // TODO add support for sequential decoding?
 @OptIn(ExperimentalSerializationApi::class)
@@ -98,8 +98,8 @@ class BencodeDecoder(
         when (deserializer.descriptor) {
             byteArraySerializer.descriptor -> decodeByteArray() as T
             // TODO next line will be obsolete if find a way to make BencodedString as value class
-            bencodedStringSerializer.descriptor -> BencodedString(reader.readByteString()) as T
-            bencodedDataSerializer.descriptor -> reader.readData() as T
+            bencodedStringSerializer.descriptor -> BencodeString(reader.readByteString()) as T
+            bencodeElementSerializer.descriptor -> reader.readData() as T
             else -> super.decodeSerializableValue(deserializer)
         }
 }
