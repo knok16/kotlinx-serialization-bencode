@@ -5,6 +5,7 @@ import java.nio.charset.Charset
 object DIGITS_RANGE {
     operator fun contains(token: Char?) = token in '0'..'9'
 }
+
 const val END_TOKEN = 'e'
 const val NUMBER_START_TOKEN = 'i'
 const val LIST_START_TOKEN = 'l'
@@ -71,11 +72,7 @@ fun Reader.readNumber(): Long {
 fun Reader.readList(): List<BencodeElement> {
     consumeToken(LIST_START_TOKEN)
 
-    val result = ArrayList<BencodeElement>()
-
-    while (true) {
-        result.add(readData() ?: break)
-    }
+    val result = generateSequence { readData() }.toList()
 
     consumeToken(END_TOKEN)
 
@@ -85,20 +82,19 @@ fun Reader.readList(): List<BencodeElement> {
 fun Reader.readDictionary(): Map<BencodeString, BencodeElement> {
     consumeToken(DICTIONARY_START_TOKEN)
 
-    val result = HashMap<BencodeString, BencodeElement>()
-
-    while (true) {
+    val result = generateSequence {
         val keyStartingIndex = index
-        val key = readData() ?: break
-        if (key !is BencodeString)
-            throw ParsingException("Only strings allowed as keys in dictionary", keyStartingIndex)
+        readData()?.let { key ->
+            if (key !is BencodeString)
+                throw ParsingException("Only strings allowed as keys in dictionary", keyStartingIndex)
 
-        val valueStartingIndex = index
-        val value = readData()
-            ?: throw ParsingException("Cannot parse dictionary value for key '$key'", valueStartingIndex)
+            val valueStartingIndex = index
+            val value = readData()
+                ?: throw ParsingException("Cannot parse dictionary value for key '$key'", valueStartingIndex)
 
-        result[key] = value
-    }
+            key to value
+        }
+    }.toMap()
 
     consumeToken(END_TOKEN)
 
