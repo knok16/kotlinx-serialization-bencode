@@ -6,7 +6,7 @@ import kotlinx.serialization.decodeFromByteArray
 import kotlin.test.*
 
 class BencodeParserTest {
-    private val charset = Charsets.US_ASCII
+    private val charset = Charsets.UTF_8
 
     private fun bencodedString(str: String) = BencodeString(str.toByteArray(charset))
 
@@ -230,7 +230,15 @@ class BencodeParserTest {
     }
 
     @Test
-    fun decodeByteArray() {
+    fun decodeStringMultiByteChars() {
+        assertEquals(
+            "§§§§",
+            parse("8:§§§§")
+        )
+    }
+
+    @Test
+    fun decodeByteArrayFromByteString() {
         assertContentEquals(
             "AbcdAbcdAbcdA".toByteArray(charset = charset),
             parse("13:AbcdAbcdAbcdA")
@@ -294,11 +302,154 @@ class BencodeParserTest {
     }
 
     @Test
-    fun decodeMap() {
+    fun decodeEmptyArray() {
+        assertContentEquals(
+            emptyArray<String>(),
+            parse("le")
+        )
+    }
+
+    @Test
+    fun decodeArray() {
+        assertContentEquals(
+            arrayOf("abc", "foo", "bar"),
+            parse("l3:abc3:foo3:bare")
+        )
+    }
+
+    @Test
+    @Ignore // TODO fix decoder
+    fun decodeByteArrayFromList() {
+        assertContentEquals(
+            byteArrayOf(78, 79, 73, 67, 69),
+            parse("li78ei79ei73ei67ei69ee")
+        )
+    }
+
+    @Test
+    fun decodeShortArray() {
+        assertContentEquals(
+            shortArrayOf(78, 79, 73, 67, 69),
+            parse("li78ei79ei73ei67ei69ee")
+        )
+    }
+
+    @Test
+    fun decodeCharArray() {
+        assertContentEquals(
+            charArrayOf('N', 'O', 'I', 'C', 'E'),
+            parse("li78ei79ei73ei67ei69ee")
+        )
+    }
+
+    @Test
+    fun decodeIntArray() {
+        assertContentEquals(
+            intArrayOf(78, 79, 73, 67, 69),
+            parse("li78ei79ei73ei67ei69ee")
+        )
+    }
+
+    @Test
+    fun decodeLongArray() {
+        assertContentEquals(
+            longArrayOf(78, 79, 73, 67, 69),
+            parse("li78ei79ei73ei67ei69ee")
+        )
+    }
+
+    @Test
+    fun decodeMapStringKey() {
         assertEquals(
             mapOf("abc" to "def", "foo" to "bar"),
             parse("d3:abc3:def3:foo3:bare")
         )
+    }
+
+    @Test
+    fun decodeMapBencodeStringKey() {
+        assertEquals(
+            mapOf(
+                BencodeString("abc".toByteArray(charset)) to "def",
+                BencodeString("foo".toByteArray(charset)) to "bar"
+            ),
+            parse("d3:abc3:def3:foo3:bare")
+        )
+    }
+
+    @Test
+    fun decodeMapByteArrayKey() {
+        val actual = parse<Map<ByteArray, String>>("d3:abc3:def3:foo3:bare").toList().sortedBy { it.second }
+
+        assertEquals(2, actual.size)
+
+        assertContentEquals("foo".toByteArray(charset), actual[0].first)
+        assertEquals("bar", actual[0].second)
+
+        assertContentEquals("abc".toByteArray(charset), actual[1].first)
+        assertEquals("def", actual[1].second)
+    }
+
+    @Serializable
+    data class POJO(
+        val abc: String,
+        val foo: String
+    )
+
+    @Test
+    fun decodePOJO() {
+        assertEquals(
+            POJO(
+                abc = "def",
+                foo = "bar"
+            ),
+            parse("d3:abc3:def3:foo3:bare")
+        )
+    }
+
+    @Serializable
+    data class R(
+        val name: String,
+        val inner: R? = null
+    )
+
+    @Serializable
+    data class A(
+        val stringField: String,
+        val list: List<Map<String, R>>,
+        val byteField: Byte
+    )
+
+    @Test
+    fun decodeNested() {
+        assertEquals(
+            A(
+                stringField = "foo",
+                list = listOf(
+                    emptyMap(),
+                    mapOf("bar" to R(name = "alice", inner = R(name = "bob"))),
+                    emptyMap()
+                ),
+                byteField = 12
+            ),
+            parse("d9:byteFieldi12e11:stringField3:foo4:listlded3:bard4:name5:alice5:innerd4:name3:bobeeedeee")
+        )
+    }
+
+    @Serializable
+    data class IgnoreUnknownKeysExample(
+        val knownProperty: String
+    )
+
+    @Test
+    fun ignoreUnknownKeysSmallExample() {
+        val bytes = "d13:knownProperty3:foo15:unknownProperty3:bare".toByteArray()
+
+        val result = Bencode {
+            ignoreUnknownKeys = true
+        }.decodeFromByteArray<IgnoreUnknownKeysExample>(bytes)
+
+        assertEquals(IgnoreUnknownKeysExample(knownProperty = "foo"), result)
     }
 
     @Serializable
