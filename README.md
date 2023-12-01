@@ -19,6 +19,7 @@ for [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization).
     * [Nesting and composition](#nesting-and-composition)
 * [Bencode Configuration](#bencode-configuration)
     * [Ignore Unknown Keys](#ignore-unknown-keys)
+    * [String Charset](#string-charset)
 
 <!--- END -->
 
@@ -221,4 +222,20 @@ val result = Bencode {
 }.decodeFromByteArray<IgnoreUnknownKeysExample>(bytes)
 
 println(result) // IgnoreUnknownKeysExample(knownProperty=foo)
+```
+
+### String Charset
+
+Bencode encodes strings as byte arrays, and their interpretation can vary based on the assumed character set.
+By default, UTF-8 encoding assumed, and all `String`s and fields names decoded/encoded using it.
+To change assumed string encoding `stringCharset` configuration can be used:
+
+```kotlin
+val bytes = byteArrayOf(54, 58, 97, 0, 98, 0, 99, 0) // 6:abc
+
+val result = Bencode {
+  stringCharset = Charsets.UTF_16LE
+}.decodeFromByteArray<String>(bytes)
+
+println(result) // abc
 ```

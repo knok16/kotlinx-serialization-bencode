@@ -468,4 +468,14 @@ class BencodeParserTest {
 
         assertEquals("https://torrent.ubuntu.com/announce", metadata.announce)
     }
+
+    @Test
+    fun stringCharsetConfiguration() {
+        val bytes = byteArrayOf('6'.code.toByte(), ':'.code.toByte()) + "abc".toByteArray(Charsets.UTF_16LE)
+
+        assertEquals(8, bytes.size)
+        assertEquals("abc", Bencode {
+            stringCharset = Charsets.UTF_16LE
+        }.decodeFromByteArray<String>(bytes))
+    }
 }

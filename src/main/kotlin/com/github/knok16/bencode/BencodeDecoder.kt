@@ -28,7 +28,7 @@ class BencodeDecoder(
     private val positions = Stack<Int>()
 
     override fun decodeString(): String =
-        reader.readString(charset = Charsets.UTF_8) // TODO move charset into parameters
+        reader.readString(charset = bencode.stringCharset)
 
     // TODO add validation if value too big for byte/short/int
     // TODO what about supporting BigInteger?
