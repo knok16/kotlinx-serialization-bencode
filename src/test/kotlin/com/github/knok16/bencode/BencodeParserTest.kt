@@ -1,11 +1,9 @@
 package com.github.knok16.bencode
 
-import com.github.knok16.serialization.Bencode
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromByteArray
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Test
-import kotlin.test.assertFailsWith
-import kotlin.test.assertNull
+import kotlin.test.*
 
 class BencodeParserTest {
     private val charset = Charsets.US_ASCII
@@ -19,6 +17,15 @@ class BencodeParserTest {
 
     private inline fun <reified T> parse(string: String): T =
         Bencode.decodeFromByteArray(string.toByteArray(charset = charset))
+
+    private fun readBytesFromResource(resourceName: String): ByteArray =
+        BencodeParserTest::class.java.getResourceAsStream(resourceName)?.readBytes()
+            ?: throw IllegalArgumentException("Cannot find resource '$resourceName'")
+
+    private fun assertParsingException(expectedReason: String, bencodedString: String) = assertEquals(
+        expectedReason,
+        assertFailsWith<ParsingException> { parse<BencodeElement>(bencodedString) }.message
+    )
 
     @Test
     fun decodeStringIsNotFullyParsable() {
@@ -152,8 +159,162 @@ class BencodeParserTest {
         )
     }
 
-    fun assertParsingException(expectedReason: String, bencodedString: String) = assertEquals(
-        expectedReason,
-        assertFailsWith<ParsingException> { parse<BencodeElement>(bencodedString) }.message
+    @Serializable
+    data class TorrentMetadata(
+        val announce: String,
+        val publisher: String? = null,
+        @SerialName("creation date")
+        val creationDate: Long,
+        @SerialName("created by")
+        val createdBy: String,
+        val encoding: String? = null,
+        val comment: String?,
+        @SerialName("announce-list")
+        val announceList: List<List<String>>,
+        @SerialName("publisher-url")
+        val publisherUrl: String? = null,
+        val info: Info
     )
+
+    @Serializable
+    data class Info(
+        val private: Long = 0,
+        val length: Long,
+        val pieces: ByteArray,
+        @SerialName("piece length")
+        val pieceLength: Long,
+        val name: String
+    )
+
+    @OptIn(ExperimentalUnsignedTypes::class)
+    @Test
+    fun decodeFromByteArray() {
+        val bytes = readBytesFromResource("/ubuntu-23.10.1-desktop-amd64.iso.torrent")
+
+        val metadata = Bencode.decodeFromByteArray<TorrentMetadata>(bytes)
+
+        assertEquals("https://torrent.ubuntu.com/announce", metadata.announce)
+        assertEquals(null, metadata.publisher)
+        assertEquals(1697466120, metadata.creationDate)
+        assertEquals("mktorrent 1.1", metadata.createdBy)
+        assertEquals(null, metadata.encoding)
+        assertEquals("Ubuntu CD releases.ubuntu.com", metadata.comment)
+        assertEquals(
+            listOf(
+                listOf("https://torrent.ubuntu.com/announce"),
+                listOf("https://ipv6.torrent.ubuntu.com/announce")
+            ), metadata.announceList
+        )
+        assertEquals(null, metadata.publisherUrl)
+        assertEquals(0, metadata.info.private)
+        assertEquals(5173995520, metadata.info.length)
+        assertEquals(394760, metadata.info.pieces.size)
+        assertContentEquals(
+            ubyteArrayOf(0xB5u, 0x93u, 0x68u, 0x26u, 0x38u, 0xEBu, 0xD2u, 0x40u, 0x32u, 0x73u).toByteArray(),
+            metadata.info.pieces.copyOf(10)
+        )
+        assertContentEquals(
+            ubyteArrayOf(0xD1u, 0x92u, 0x68u, 0xDDu, 0x23u, 0x11u, 0xE2u, 0x8Du, 0x1Cu, 0x3Du).toByteArray(),
+            metadata.info.pieces.copyOfRange(394760 - 10, 394760)
+        )
+        assertEquals(262144, metadata.info.pieceLength)
+        assertEquals("ubuntu-23.10.1-desktop-amd64.iso", metadata.info.name)
+    }
+
+    @Test
+    fun decodeString() {
+        assertEquals(
+            "AbcdAbcdAbcdA",
+            parse("13:AbcdAbcdAbcdA")
+        )
+    }
+
+    @Test
+    fun decodeByteArray() {
+        assertContentEquals(
+            "AbcdAbcdAbcdA".toByteArray(charset = charset),
+            parse("13:AbcdAbcdAbcdA")
+        )
+    }
+
+    @Test
+    fun decodeByte() {
+        assertEquals(
+            123.toByte(),
+            parse("i123e")
+        )
+    }
+
+    @Test
+    fun decodeShort() {
+        assertEquals(
+            123.toShort(),
+            parse("i123e")
+        )
+    }
+
+    @Test
+    fun decodeChar() {
+        assertEquals(
+            '@',
+            parse("i64e")
+        )
+    }
+
+    @Test
+    fun decodeInt() {
+        assertEquals(
+            123,
+            parse("i123e")
+        )
+    }
+
+    @Test
+    fun decodeLong() {
+        assertEquals(
+            123L,
+            parse("i123e")
+        )
+    }
+
+    @Test
+    fun decodeEmptyList() {
+        assertEquals(
+            emptyList<String>(),
+            parse("le")
+        )
+    }
+
+    @Test
+    fun decodeList() {
+        assertEquals(
+            listOf("abc", "foo", "bar"),
+            parse("l3:abc3:foo3:bare")
+        )
+    }
+
+    @Test
+    fun decodeMap() {
+        assertEquals(
+            mapOf("abc" to "def", "foo" to "bar"),
+            parse("d3:abc3:def3:foo3:bare")
+        )
+    }
+
+    @Serializable
+    data class TorrentMetadataSmall(
+        val announce: String,
+        val info: Info
+    )
+
+    @Test
+    fun ignoreUnknownKeys() {
+        val bytes = readBytesFromResource("/ubuntu-23.10.1-desktop-amd64.iso.torrent")
+
+        val metadata = Bencode {
+            ignoreUnknownKeys = true
+        }.decodeFromByteArray<TorrentMetadataSmall>(bytes)
+
+        assertEquals("https://torrent.ubuntu.com/announce", metadata.announce)
+    }
 }

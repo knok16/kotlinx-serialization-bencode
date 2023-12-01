@@ -1,8 +1,7 @@
 @file:OptIn(ExperimentalSerializationApi::class)
 
-package com.github.knok16.serialization
+package com.github.knok16.bencode
 
-import com.github.knok16.bencode.*
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.descriptors.SerialDescriptor
