@@ -22,8 +22,9 @@ sealed class Bencode(
         val decoder = BencodeDecoder(this, reader)
 
         return decoder.decodeSerializableValue(deserializer).also {
-            if (reader.peek() != null)
-                throw ParsingException("Unexpected character '${reader.peek()}'", reader.index)
+            reader.peek()?.let {
+                throw ParsingException("Unexpected character '${it.tokenToChar()}'", reader.index)
+            }
         }
     }
 

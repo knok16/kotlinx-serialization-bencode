@@ -3,13 +3,20 @@ package com.github.knok16.bencode
 import java.nio.charset.Charset
 
 object DIGITS_RANGE {
-    operator fun contains(token: Char?) = token in '0'..'9'
+    const val LOWER_BOUND = '0'.code.toByte()
+    const val UPPER_BOUND = '9'.code.toByte()
+
+    operator fun contains(token: Byte?) = token != null && LOWER_BOUND <= token && token <= UPPER_BOUND
 }
 
-const val END_TOKEN = 'e'
-const val NUMBER_START_TOKEN = 'i'
-const val LIST_START_TOKEN = 'l'
-const val DICTIONARY_START_TOKEN = 'd'
+const val END_TOKEN = 'e'.code.toByte()
+const val BYTE_STRING_LENGTH_AND_DATA_SEPARATOR = ':'.code.toByte()
+const val NUMBER_START_TOKEN = 'i'.code.toByte()
+const val NUMBER_MINUS_SIGN_TOKEN = '-'.code.toByte()
+const val LIST_START_TOKEN = 'l'.code.toByte()
+const val DICTIONARY_START_TOKEN = 'd'.code.toByte()
+
+fun Byte.tokenToChar(): Char = toInt().toChar()
 
 fun Reader.readData(): BencodeElement? = when (peek()) {
     in DIGITS_RANGE -> BencodeString(readByteString())
@@ -22,12 +29,12 @@ fun Reader.readData(): BencodeElement? = when (peek()) {
 internal fun Reader.readInteger(): Long {
     when (val token = peek()) {
         null -> throw ParsingException("Expected decimal digit, but got end of input")
-        !in DIGITS_RANGE -> throw ParsingException("Expected decimal digit, but got '$token'", index)
+        !in DIGITS_RANGE -> throw ParsingException("Expected decimal digit, but got '${token.tokenToChar()}'", index)
     }
 
     var result = 0L
     while (peek() in DIGITS_RANGE) {
-        result = result * 10 + (next()!! - '0')
+        result = result * 10 + (next()!! - DIGITS_RANGE.LOWER_BOUND)
     }
 
     return result
@@ -38,7 +45,7 @@ fun Reader.readByteString(): ByteArray {
     if (len > Integer.MAX_VALUE)
         throw ParsingException("Length of string too big: $len")
 
-    consumeToken(':')
+    consumeToken(BYTE_STRING_LENGTH_AND_DATA_SEPARATOR)
 
     return takeNextBytes(len.toInt())
 }
@@ -50,7 +57,7 @@ fun Reader.readString(charset: Charset): String {
     if (len > Integer.MAX_VALUE)
         throw ParsingException("Length of string too big: $len")
 
-    consumeToken(':')
+    consumeToken(BYTE_STRING_LENGTH_AND_DATA_SEPARATOR)
 
     return takeString(len.toInt(), charset)
 }
@@ -58,7 +65,7 @@ fun Reader.readString(charset: Charset): String {
 fun Reader.readNumber(): Long {
     consumeToken(NUMBER_START_TOKEN)
 
-    val minusSign = peek() == '-'
+    val minusSign = peek() == NUMBER_MINUS_SIGN_TOKEN
     if (minusSign)
         next() // pop minus sign
 
@@ -101,8 +108,8 @@ fun Reader.readDictionary(): Map<BencodeString, BencodeElement> {
     return result
 }
 
-fun Reader.consumeToken(expectedToken: Char) = when (val token = peek()) {
-    null -> throw ParsingException("Expected '$expectedToken', but got end of input")
+fun Reader.consumeToken(expectedToken: Byte) = when (val token = peek()) {
+    null -> throw ParsingException("Expected '${expectedToken.tokenToChar()}', but got end of input")
     expectedToken -> next()
-    else -> throw ParsingException("Expected '$expectedToken', but got '$token'", index)
+    else -> throw ParsingException("Expected '${expectedToken.tokenToChar()}', but got '${token.tokenToChar()}'", index)
 }
