@@ -119,6 +119,7 @@ Bencoded Lists can be parsed into:
 
 - `List<T>`
 - `Array<T>`
+- `ByteArray`
 - `ShortArray`
 - `CharArray`
 - `IntArray`
@@ -134,6 +135,7 @@ println(Bencode.decodeFromByteArray<Array<String>>(bytes).contentToString()) // 
 ```kotlin
 val bytes = "li78ei79ei73ei67ei69ee".toByteArray()
 
+println(Bencode.decodeFromByteArray<ByteArray>(bytes).contentToString()) // [78, 79, 73, 67, 69]
 println(Bencode.decodeFromByteArray<ShortArray>(bytes).contentToString()) // [78, 79, 73, 67, 69]
 println(Bencode.decodeFromByteArray<CharArray>(bytes).contentToString()) // [N, O, I, C, E]
 println(Bencode.decodeFromByteArray<IntArray>(bytes).contentToString()) // [78, 79, 73, 67, 69]

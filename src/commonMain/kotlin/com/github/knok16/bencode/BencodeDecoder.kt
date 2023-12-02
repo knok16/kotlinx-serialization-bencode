@@ -93,7 +93,11 @@ class BencodeDecoder(
     @Suppress("UNCHECKED_CAST")
     override fun <T> decodeSerializableValue(deserializer: DeserializationStrategy<T>): T =
         when (deserializer.descriptor) {
-            byteArraySerializer.descriptor -> decodeByteArray() as T
+            // TODO should it be added on top, by some standalone serializer?
+            byteArraySerializer.descriptor -> when (reader.peek()) {
+                in DIGITS_RANGE -> decodeByteArray() as T
+                else -> super.decodeSerializableValue(deserializer)
+            }
             // TODO next line will be obsolete if find a way to make BencodedString as value class
             bencodedStringSerializer.descriptor -> BencodeString(reader.readByteString()) as T
             bencodeElementSerializer.descriptor -> reader.readData() as T

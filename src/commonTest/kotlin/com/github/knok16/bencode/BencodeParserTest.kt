@@ -318,7 +318,6 @@ class BencodeParserTest {
     }
 
     @Test
-    @Ignore // TODO fix decoder
     fun decodeByteArrayFromList() {
         assertContentEquals(
             byteArrayOf(78, 79, 73, 67, 69),
