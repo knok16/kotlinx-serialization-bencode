@@ -1,5 +1,7 @@
+import org.jetbrains.kotlin.gradle.targets.jvm.tasks.KotlinJvmTest
+
 plugins {
-    kotlin("jvm") version "1.9.20"
+    kotlin("multiplatform") version "1.9.20"
     kotlin("plugin.serialization") version "1.9.20"
 }
 
@@ -10,15 +12,31 @@ repositories {
     mavenCentral()
 }
 
-dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.1")
-    testImplementation(kotlin("test"))
-}
-
-tasks.test {
-    useJUnitPlatform()
-}
-
 kotlin {
-    jvmToolchain(8)
+    jvm {
+        jvmToolchain(11)
+
+        tasks.withType<KotlinJvmTest> {
+            useJUnitPlatform()
+        }
+    }
+
+    sourceSets {
+        commonMain {
+            dependencies {
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.1")
+            }
+        }
+        commonTest {
+            dependencies {
+                implementation(kotlin("test"))
+            }
+        }
+        jvmTest {
+            dependencies {
+                implementation("org.junit.jupiter:junit-jupiter:5.9.2")
+                runtimeOnly("org.junit.platform:junit-platform-launcher")
+            }
+        }
+    }
 }
