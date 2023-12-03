@@ -69,7 +69,7 @@ class BencodeDecoder(
     }
 
     override tailrec fun decodeElementIndex(descriptor: SerialDescriptor): Int {
-        return if (reader.peek() in setOf(null, END_TOKEN)) {
+        return if (reader.peek() == END_TOKEN) {
             CompositeDecoder.DECODE_DONE
         } else when (descriptor.kind) {
             StructureKind.LIST,
@@ -79,8 +79,7 @@ class BencodeDecoder(
             StructureKind.OBJECT -> {
                 val index = descriptor.getElementIndex(decodeString())
                 if (index == CompositeDecoder.UNKNOWN_NAME && bencode.ignoreUnknownKeys) {
-                    // TODO what if empty?
-                    reader.readData() // read and throw-out value for unknown key
+                    reader.readBencodeElement() // read and throw-out value for unknown key
                     decodeElementIndex(descriptor)
                 } else index
             }
@@ -100,7 +99,7 @@ class BencodeDecoder(
             }
             // TODO next line will be obsolete if find a way to make BencodedString as value class
             bencodedStringSerializer.descriptor -> BencodeString(reader.readByteString()) as T
-            bencodeElementSerializer.descriptor -> reader.readData() as T
+            bencodeElementSerializer.descriptor -> reader.readBencodeElement() as T
             else -> super.decodeSerializableValue(deserializer)
         }
 }

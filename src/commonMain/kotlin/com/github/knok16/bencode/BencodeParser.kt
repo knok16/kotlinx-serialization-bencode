@@ -6,7 +6,7 @@ object DIGITS_RANGE {
     const val LOWER_BOUND = '0'.code.toByte()
     const val UPPER_BOUND = '9'.code.toByte()
 
-    operator fun contains(token: Byte?) = token != null && LOWER_BOUND <= token && token <= UPPER_BOUND
+    operator fun contains(token: Token?) = token != null && LOWER_BOUND <= token && token <= UPPER_BOUND
 }
 
 const val END_TOKEN = 'e'.code.toByte()
@@ -16,25 +16,32 @@ const val NUMBER_MINUS_SIGN_TOKEN = '-'.code.toByte()
 const val LIST_START_TOKEN = 'l'.code.toByte()
 const val DICTIONARY_START_TOKEN = 'd'.code.toByte()
 
-fun Byte.tokenToChar(): Char = toInt().toChar()
+// TODO should we show it as byte?
+internal fun Token.tokenToChar(): String = "'${toInt().toChar()}'"
 
-fun Reader.readData(): BencodeElement? = when (peek()) {
+fun Reader.unexpectedToken(expected: String): Nothing = throw peek()?.let {
+    ParsingException("Expected $expected, but got ${it.tokenToChar()}", index)
+} ?: ParsingException("Expected $expected, but got end of input")
+
+fun Reader.readBencodeElement(): BencodeElement = when (peek()) {
     in DIGITS_RANGE -> BencodeString(readByteString())
     NUMBER_START_TOKEN -> BencodeNumber(readNumber())
     LIST_START_TOKEN -> BencodeList(readList())
     DICTIONARY_START_TOKEN -> BencodeDictionary(readDictionary())
-    else -> null
+    else -> unexpectedToken("start of bencode element")
+}
+
+internal fun <T> Reader.readUntilEndToken(readAction: Reader.() -> T): Sequence<T> = generateSequence {
+    if (peek() != END_TOKEN) readAction() else null
 }
 
 internal fun Reader.readInteger(): Long {
-    when (val token = peek()) {
-        null -> throw ParsingException("Expected decimal digit, but got end of input")
-        !in DIGITS_RANGE -> throw ParsingException("Expected decimal digit, but got '${token.tokenToChar()}'", index)
-    }
+    if (peek() !in DIGITS_RANGE)
+        unexpectedToken("decimal digit")
 
     var result = 0L
     while (peek() in DIGITS_RANGE) {
-        result = result * 10 + (next()!! - DIGITS_RANGE.LOWER_BOUND)
+        result = result * 10 + (next() - DIGITS_RANGE.LOWER_BOUND)
     }
 
     return result
@@ -52,7 +59,6 @@ fun Reader.readByteString(): ByteArray {
 
 // TODO deduplicate common with readByteString
 fun Reader.readString(charset: Charset): String {
-
     val len = readInteger()
     if (len > Integer.MAX_VALUE)
         throw ParsingException("Length of string too big: $len")
@@ -79,7 +85,7 @@ fun Reader.readNumber(): Long {
 fun Reader.readList(): List<BencodeElement> {
     consumeToken(LIST_START_TOKEN)
 
-    val result = generateSequence { readData() }.toList()
+    val result = readUntilEndToken { readBencodeElement() }.toList()
 
     consumeToken(END_TOKEN)
 
@@ -89,27 +95,13 @@ fun Reader.readList(): List<BencodeElement> {
 fun Reader.readDictionary(): Map<BencodeString, BencodeElement> {
     consumeToken(DICTIONARY_START_TOKEN)
 
-    val result = generateSequence {
-        val keyStartingIndex = index
-        readData()?.let { key ->
-            if (key !is BencodeString)
-                throw ParsingException("Only strings allowed as keys in dictionary", keyStartingIndex)
-
-            val valueStartingIndex = index
-            val value = readData()
-                ?: throw ParsingException("Cannot parse dictionary value for key '$key'", valueStartingIndex)
-
-            key to value
-        }
-    }.toMap()
+    val result = readUntilEndToken { BencodeString(readByteString()) to readBencodeElement() }.toMap()
 
     consumeToken(END_TOKEN)
 
     return result
 }
 
-fun Reader.consumeToken(expectedToken: Byte) = when (val token = peek()) {
-    null -> throw ParsingException("Expected '${expectedToken.tokenToChar()}', but got end of input")
-    expectedToken -> next()
-    else -> throw ParsingException("Expected '${expectedToken.tokenToChar()}', but got '${token.tokenToChar()}'", index)
-}
+fun Reader.consumeToken(expectedToken: Token) =
+    if (peek() == expectedToken) next()
+    else unexpectedToken(expectedToken.tokenToChar())

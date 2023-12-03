@@ -2,13 +2,19 @@ package com.github.knok16.bencode
 
 import java.nio.charset.Charset
 
+typealias Token = Byte
+
 class Reader(private val input: ByteArray) {
     var index = 0
         private set
 
-    fun peek(): Byte? = if (index < input.size) input[index] else null
+    fun peek(): Token? =
+        if (index < input.size) input[index]
+        else null
 
-    fun next(): Byte? = peek()?.also { index++ }
+    fun next(): Token =
+        if (index < input.size) input[index++]
+        else throw ParsingException("No tokens left")
 
     fun takeNextBytes(n: Int): ByteArray = if (index + n <= input.size)
         input.copyOfRange(index, index + n).also { index += n }

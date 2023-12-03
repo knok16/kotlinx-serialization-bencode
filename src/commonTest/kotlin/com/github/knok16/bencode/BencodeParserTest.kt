@@ -29,18 +29,13 @@ class BencodeParserTest {
 
     @Test
     fun decodeStringIsNotFullyParsable() {
-        assertParsingException("Unexpected character 'U'", "UNEXPECTED_SYMBOLS")
-        assertParsingException("Unexpected character 'i'", "i123ei456e")
+        assertParsingException("Expected start of bencode element, but got 'U'", "UNEXPECTED_SYMBOLS")
+        assertParsingException("Expected end of input, but got 'i'", "i123ei456e")
     }
 
     @Test
     fun decodeEmptyString() {
-        assertNull(parse<BencodeElement>(""))
-        // TODO decide on this
-        // assertNull(parse<BencodedString>(""))
-        // assertNull(parse<BencodedNumber>(""))
-        // assertNull(parse<BencodedList>(""))
-        // assertNull(parse<BencodedDictionary>(""))
+        assertParsingException("Expected start of bencode element, but got end of input", "")
     }
 
     @Test
@@ -111,9 +106,9 @@ class BencodeParserTest {
 
     @Test
     fun decodeBencodedListPrematureEnd() {
-        assertParsingException("Expected 'e', but got end of input", "l")
-        assertParsingException("Expected 'e', but got end of input", "li123e")
-        assertParsingException("Expected 'e', but got end of input", "l3:abc")
+        assertParsingException("Expected start of bencode element, but got end of input", "l")
+        assertParsingException("Expected start of bencode element, but got end of input", "li123e")
+        assertParsingException("Expected start of bencode element, but got end of input", "l3:abc")
     }
 
     @Test
@@ -131,16 +126,16 @@ class BencodeParserTest {
 
     @Test
     fun decodeBencodedDictionaryPrematureEnd() {
-        assertParsingException("Expected 'e', but got end of input", "d")
-        assertParsingException("Cannot parse dictionary value for key 'abc'", "d3:abc")
-        assertParsingException("Expected 'e', but got end of input", "d3:abc3:bar")
+        assertParsingException("Expected decimal digit, but got end of input", "d")
+        assertParsingException("Expected start of bencode element, but got end of input", "d3:abc")
+        assertParsingException("Expected decimal digit, but got end of input", "d3:abc3:bar")
     }
 
     @Test
     fun decodeBencodedDictionaryOnlyStringAllowedAsKeys() {
-        assertParsingException("Only strings allowed as keys in dictionary", "di123e5:valuee")
-        assertParsingException("Only strings allowed as keys in dictionary", "dl5:helloi52ee5:valuee")
-        assertParsingException("Only strings allowed as keys in dictionary", "dde3:abce")
+        assertParsingException("Expected decimal digit, but got 'i'", "di123e5:valuee")
+        assertParsingException("Expected decimal digit, but got 'l'", "dl5:helloi52ee5:valuee")
+        assertParsingException("Expected decimal digit, but got 'd'", "dde3:abce")
     }
 
     @Test
